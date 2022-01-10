@@ -11,11 +11,13 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -23,6 +25,7 @@ import (
 
 var (
 	currencyCodeDefault  = []string{"KRW","USD","IDR","SGD","THB"}
+	cfg,_ = OpenConfigFile()
 
 )
 const(
@@ -35,6 +38,21 @@ const(
 type RequestBody struct {
 	CurrencyCode []string
 }
+type Config struct {
+	Redis_Local struct {
+		Host     string `yaml:"host"`
+		Port     string `yaml:"port"`
+	} `yaml:"redis_local"`
+	Mongo_Local struct {
+		Host     string `yaml:"host"`
+		Port     string `yaml:"port"`
+		User     string `yaml:"user"`
+		Pass     string `yaml:"pass"`
+		Database string `yaml:"database"`
+		DBName   string `yaml:"dbname"`
+	} `yaml:"mongo_local"`
+}
+
 type CoinGeckoMarket struct {
 	Id                           string      `json:"id"`
 	Symbol                       string      `json:"symbol"`
@@ -114,7 +132,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		currencyCode = requestBody.CurrencyCode
 	}
 	ctx := context.TODO()
-	rds := initializeRedisLocalClient(ctx)
+	rds := initializeRedisLocalClient(ctx,cfg)
 	res, err := rds.Get(ctx,symbolPro).Result()
 	if err != nil {
 		fmt.Println("No redis data and querying API now!")
@@ -292,7 +310,7 @@ func getCoinGeckoInfo( w http.ResponseWriter,symbol string, currencyCode []strin
 			os.Exit(1)
 		}
 		ctx := context.TODO()
-		co := initializeMongoLocalClient(ctx)
+		co := initializeMongoLocalClient(ctx,cfg)
 		id := getSymbolId(co,symbol)
 		fmt.Println("==========TokenId==========")
 		fmt.Println(id)
@@ -392,7 +410,7 @@ func processBMG(w http.ResponseWriter,symbolPro string,currencyPrice map[string]
 
 	}
 	ctx := context.TODO()
-	rds := initializeRedisLocalClient(ctx)
+	rds := initializeRedisLocalClient(ctx,cfg)
 	redis := Redis{data.MarketCap,data.CirculatingSupply,data.MaxSupply,data.Provider,data.LastUpdatedTimestamp}
 	redisJson, err := json.Marshal(redis)
 	if err != nil {
@@ -455,7 +473,7 @@ func processMG(w http.ResponseWriter,symbolPro string,currencyPrice map[string]f
 
 	}
 	ctx := context.TODO()
-	rds := initializeRedisLocalClient(ctx)
+	rds := initializeRedisLocalClient(ctx,cfg)
 	redis := Redis{data.MarketCap,data.CirculatingSupply,data.MaxSupply,data.Provider,data.LastUpdatedTimestamp}
 	redisJson, err := json.Marshal(redis)
 	if err != nil {
@@ -494,7 +512,7 @@ func processBG(w http.ResponseWriter,symbolPro string,currencyPrice map[string]f
 
 	}
 	ctx := context.TODO()
-	rds := initializeRedisLocalClient(ctx)
+	rds := initializeRedisLocalClient(ctx,cfg)
 	redis := Redis{data.MarketCap,data.CirculatingSupply,data.MaxSupply,data.Provider,data.LastUpdatedTimestamp}
 	redisJson, err := json.Marshal(redis)
 	if err != nil {
@@ -534,7 +552,7 @@ func processBM(w http.ResponseWriter,symbolPro string,currencyPrice map[string]f
 
 	}
 	ctx := context.TODO()
-	rds := initializeRedisLocalClient(ctx)
+	rds := initializeRedisLocalClient(ctx,cfg)
 	redis := Redis{data.MarketCap,data.CirculatingSupply,data.MaxSupply,data.Provider,data.LastUpdatedTimestamp}
 	redisJson, err := json.Marshal(redis)
 	if err != nil {
@@ -572,7 +590,7 @@ func processG(w http.ResponseWriter,symbolPro string,currencyPrice map[string]fl
 
 	}
 	ctx := context.TODO()
-	rds := initializeRedisLocalClient(ctx)
+	rds := initializeRedisLocalClient(ctx,cfg)
 	redis := Redis{data.MarketCap,data.CirculatingSupply,data.MaxSupply,data.Provider,data.LastUpdatedTimestamp}
 	redisJson, err := json.Marshal(redis)
 	if err != nil {
@@ -589,9 +607,9 @@ func processG(w http.ResponseWriter,symbolPro string,currencyPrice map[string]fl
 	w.Write(result)
 }
 
-func initializeRedisLocalClient( ctx context.Context) *redis.Client {
+func initializeRedisLocalClient( ctx context.Context, cfg Config) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "172.17.0.1:6381",
+		Addr:     cfg.Redis_Local.Host+":"+cfg.Redis_Local.Port,
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
@@ -601,9 +619,9 @@ func initializeRedisLocalClient( ctx context.Context) *redis.Client {
 	}
 	return rdb
 }
-func initializeMongoLocalClient( ctx context.Context) *mongo.Client {
+func initializeMongoLocalClient( ctx context.Context, cfg Config) *mongo.Client {
 	var clientOptions *options.ClientOptions
-	clientOptions = options.Client().ApplyURI("mongodb://172.17.0.1:27006/id")
+	clientOptions = options.Client().ApplyURI("mongodb://" + cfg.Mongo_Local.Host + ":" + cfg.Mongo_Local.Port + "/" + cfg.Mongo_Local.Database)
 	cl, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		fmt.Println("connect mongo error")
@@ -616,7 +634,11 @@ func initializeMongoLocalClient( ctx context.Context) *mongo.Client {
 }
 func setSymbolId() {
 	ctx := context.TODO()
-	co := initializeMongoLocalClient(ctx)
+	cfg , err := OpenConfigFile()
+	if err != nil {
+		fmt.Println("Open config error")
+	}
+	co := initializeMongoLocalClient(ctx,cfg)
 	client := &http.Client{}
 	req, err := http.NewRequest("GET",symbolIdApi, nil)
 	if err != nil {
@@ -661,4 +683,19 @@ func getSymbolId (co *mongo.Client,symbol string) string {
 	}
 	return symbolId.Id
 
+}
+func OpenConfigFile() (Config, error) {
+	absPath, _ := filepath.Abs("config.yml")
+	f, err := os.Open(absPath)
+	if err != nil {
+		return Config{}, err
+	}
+	defer f.Close()
+	var cfg Config
+	decoder := yaml.NewDecoder(f)
+	err = decoder.Decode(&cfg)
+	if err != nil {
+		return Config{}, err
+	}
+	return cfg, err
 }

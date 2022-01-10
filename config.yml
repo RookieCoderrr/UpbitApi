@@ -1,0 +1,14 @@
+
+mongo_local:
+  host: "172.17.0.1"
+  # host: "docker.for.mac.host.internal"
+  port: "27006"
+  dbname: "id"
+  database: "id"
+
+redis_local:
+  host: "172.17.0.1"
+  # host: "docker.for.mac.host.internal"
+  port: "6381"
+
+
