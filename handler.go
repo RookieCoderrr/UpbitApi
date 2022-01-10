@@ -591,7 +591,7 @@ func processG(w http.ResponseWriter,symbolPro string,currencyPrice map[string]fl
 
 func initializeRedisLocalClient( ctx context.Context) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6381",
+		Addr:     "127.0.0.1:6381",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
@@ -603,7 +603,7 @@ func initializeRedisLocalClient( ctx context.Context) *redis.Client {
 }
 func initializeMongoLocalClient( ctx context.Context) *mongo.Client {
 	var clientOptions *options.ClientOptions
-	clientOptions = options.Client().ApplyURI("mongodb://localhost:27006/id")
+	clientOptions = options.Client().ApplyURI("mongodb://127.0.0.1:27006/id")
 	cl, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		fmt.Println("connect mongo error")
