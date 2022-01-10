@@ -6,7 +6,7 @@ services:
     ports:
       - "1928:1928"
     networks:
-      - network
+      - upbit
     restart: always
     container_name: upbit_server
     depends_on:
