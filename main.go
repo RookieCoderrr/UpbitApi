@@ -25,5 +25,5 @@ func main() {
 	c.Start()
 	muxRouter := mux.NewRouter()
 	muxRouter.HandleFunc("/api/{symbol}/info",handler)
-	http.ListenAndServe(":1926",muxRouter)
+	http.ListenAndServe(":1928",muxRouter)
 }
