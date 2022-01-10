@@ -19,7 +19,7 @@ services:
       - upbit
     restart: always
     ports:
-      - "6380:6380"
+      - "6381:6381"
     container_name: upbit_redis
 
   mongo:

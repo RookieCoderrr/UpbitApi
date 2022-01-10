@@ -591,7 +591,7 @@ func processG(w http.ResponseWriter,symbolPro string,currencyPrice map[string]fl
 
 func initializeRedisLocalClient( ctx context.Context) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6380",
+		Addr:     "localhost:6381",
 		Password: "", // no password set
 		DB:       0,  // use default DB
 	})
